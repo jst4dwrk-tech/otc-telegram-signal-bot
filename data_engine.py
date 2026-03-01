@@ -1,6 +1,9 @@
 import statistics
 
 def analyze_candles(candles):
+    if candles is None or len(candles) < 30:
+        return None
+
     bodies = []
     wicks = []
 
@@ -9,9 +12,6 @@ def analyze_candles(candles):
         wick = (c["high"] - c["low"]) - body
         bodies.append(body)
         wicks.append(wick)
-
-    if len(bodies) < 20:
-        return None
 
     volatility = statistics.stdev(bodies[-20:])
     wick_aggression = sum(wicks[-5:]) / (sum(bodies[-5:]) + 0.0001)
@@ -22,5 +22,4 @@ def analyze_candles(candles):
         "volatility": volatility,
         "wick_aggression": wick_aggression,
         "compression": compression,
-        "last_candle": candles[-1]
     }
