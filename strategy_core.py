@@ -1,7 +1,15 @@
 def false_breakout(candles, obs):
+    if candles is None or len(candles) < 10:
+        return None
+
     last = candles[-1]
-    recent_high = max(c["high"] for c in candles[-6:-1])
-    recent_low = min(c["low"] for c in candles[-6:-1])
+    recent = candles[-6:-1]
+
+    if not recent:
+        return None
+
+    recent_high = max(c["high"] for c in recent)
+    recent_low = min(c["low"] for c in recent)
 
     breakout_up = last["high"] > recent_high
     breakout_down = last["low"] < recent_low
@@ -22,9 +30,12 @@ def false_breakout(candles, obs):
 
 
 def micro_trend_exhaustion(candles):
-    recent = candles[-4:]
+    if candles is None or len(candles) < 5:
+        return None
 
+    recent = candles[-4:]
     directions = [(c["close"] > c["open"]) for c in recent]
+
     if not all(d == directions[0] for d in directions):
         return None
 
