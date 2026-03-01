@@ -1,55 +1,85 @@
 import time
-import os
 from telegram import Bot
-from config import ASSETS
 from data_engine import analyze_candles
-from signal_engine import generate_signal
-from journal import log_signal
+from strategy_core import false_breakout, micro_trend_exhaustion
+from utils import get_mock_candles
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
+TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"
+CHAT_ID = "YOUR_CHAT_ID"
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=TOKEN)
 
-def send_signal(asset, direction, payout, confidence):
-    message = f"""
-📊 OTC SIGNAL
-Asset: {asset}
-Direction: {direction}
-Expiry: 1 Minute
-Confidence: {confidence}
-Payout: {int(payout * 100)}%
-⏱ Enter NEXT candle only
-"""
-    bot.send_message(chat_id=CHAT_ID, text=message)
-    log_signal(asset, direction, confidence, payout)
+ASSETS = [
+    "FACEBOOK INC OTC",
+    "American Express OTC",
+    "Microsoft OTC",
+    "Tesla OTC",
+    "Apple OTC",
+    "Bitcoin OTC",
+    "Polygon OTC",
+    "Chainlink OTC",
+    "Polkadot OTC",
+    "Cardano OTC",
+    "EUR/USD OTC",
+    "GBP/USD OTC",
+    "USD/CAD OTC",
+    "USD/JPY OTC",
+    "AUD/USD OTC"
+]
 
-def get_mock_candles():
-    # TEMPORARY mock candles for deployment test
-    return [
-        {"open":1,"high":2,"low":0.5,"close":1.5}
-        for _ in range(210)
-    ]
+def send(msg):
+    try:
+        bot.send_message(chat_id=CHAT_ID, text=msg)
+    except Exception as e:
+        print("Telegram error:", e)
 
-def run():
-    bot.send_message(chat_id=CHAT_ID, text="🤖 OTC Sentinel Online – Signal Engine Active")
+send("🤖 OTC Sentinel Online – Signal Engine Active")
 
-    while True:
-        for asset in ASSETS:
-            candles = get_mock_candles()
-            obs = analyze_candles(candles)
+while True:
+    for asset in ASSETS:
+        try:
+            candles = get_mock_candles(asset)
 
-            if not obs:
+            # 🔒 HARD GUARD 1
+            if candles is None or len(candles) < 30:
                 continue
 
-            payout = 0.87  # placeholder
-            signal = generate_signal(asset, candles, obs, payout)
+            obs = analyze_candles(candles)
 
-            if signal:
-                confidence = "A+" if obs["wick_aggression"] > 0.7 else "A"
-                send_signal(asset, signal, payout, confidence)
+            # 🔒 HARD GUARD 2
+            if obs is None:
+                continue
 
-        time.sleep(60)
+            direction = None
 
-if __name__ == "__main__":
-    run()
+            fb = false_breakout(candles, obs)
+            mt = micro_trend_exhaustion(candles)
+
+            if fb:
+                direction = fb
+                reason = "False Breakout"
+
+            elif mt:
+                direction = mt
+                reason = "Micro-Trend Exhaustion"
+
+            # 🔒 HARD GUARD 3
+            if direction is None:
+                continue
+
+            message = (
+                f"📊 OTC SIGNAL\n"
+                f"Asset: {asset}\n"
+                f"Direction: {direction}\n"
+                f"Expiry: 1 Minute\n"
+                f"Reason: {reason}\n"
+                f"Confidence: MEDIUM\n"
+            )
+
+            send(message)
+            time.sleep(3)
+
+        except Exception as e:
+            print(f"Skipped {asset} due to error:", e)
+
+    time.sleep(20)
